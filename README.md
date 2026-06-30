@@ -1,4 +1,6 @@
-﻿# Good-Badminton: AI 羽毛球鹰眼系统 🏸
+﻿# Good-Badminton-main-X1: 高通 NPU 优化版 🏸
+
+> 本项目 Fork 自 **[yo-WASSUP/Good-Badminton: 🏸 AI Badminton Hawk-Eye System](https://github.com/yo-WASSUP/Good-Badminton)**，针对 **[Rhino Pi-X1 (Ubuntu OS)](https://rhinopi.docs.aidlux.com/rhino-x1-ubuntu/)** 硬件平台做了高通 QNN NPU 推理优化。
 
 <div align="center">
 
@@ -6,8 +8,9 @@
 [![GitHub forks](https://img.shields.io/github/forks/yo-WASSUP/Good-Badminton?style=social)](https://github.com/yo-WASSUP/Good-Badminton/network/members)
 [![GitHub license](https://img.shields.io/github/license/yo-WASSUP/Good-Badminton)](https://github.com/yo-WASSUP/Good-Badminton/blob/main/LICENSE)
 [![小红书视频介绍](https://img.shields.io/badge/小红书-视频介绍-ff2442)](https://www.xiaohongshu.com/explore/6a37b1d20000000011016229?xsec_token=ABod3wXBTiDppp6W2Ou0QHlu2eotUkeu27-ha64nFRR74=&xsec_source=pc_user)
+[![Rhino Pi-X1](https://img.shields.io/badge/Hardware-Rhino%20Pi--X1-8A2BE2)](https://rhinopi.docs.aidlux.com/rhino-x1-ubuntu/)
 
-**基于计算机视觉的羽毛球比赛视频分析工具**
+**基于计算机视觉的羽毛球比赛视频分析工具 — Rhino Pi-X1 高通 NPU 适配版**
 
 [中文](README.md) | [English](README_EN.md)
 
@@ -248,8 +251,53 @@ badminton_analysis/
 └── visualization/   # 视频叠加层、统计图和位置图
 ```
 
-## 🙏 致谢
+## 🔧 Rhino Pi-X1 硬件适配
 
+本项目针对 [Rhino Pi-X1 (Ubuntu OS)](https://rhinopi.docs.aidlux.com/rhino-x1-ubuntu/) 平台做了以下优化：
+
+### 高通 QNN NPU 推理加速
+
+通过 `--use-qnn` 参数启用高通 NPU 推理，使用 AidLite QNN 推理引擎代替 CPU/GPU 推理，大幅降低延迟和功耗。
+
+```bash
+# 启用 QNN NPU 推理
+python main.py --use-qnn \
+  --video-path videos/demo.mp4 \
+  --ball-model weights/yolo11s-ball_qcs8550_fp16.qnn236.ctx.bin.aidem \
+  --yolo-pose-model weights/yolo11n-pose_qcs8550_fp16.qnn236.ctx.bin.aidem \
+  --language zh
+```
+
+### QNN 模型文件
+
+`weights/` 目录下的 QNN 模型（`.qnn236.ctx.bin.aidem`）专为高通 QCS8550 NPU 编译：
+
+| 模型 | 文件 | 用途 |
+|------|------|------|
+| 姿态检测 | `yolo11n-pose_qcs8550_fp16.qnn236.ctx.bin.aidem` | 球员人体关键点检测 |
+| 羽毛球检测 | `yolo11s-ball_qcs8550_fp16.qnn236.ctx.bin.aidem` | 羽毛球位置检测 |
+
+另有 `_w8a8` 量化版本供更低精度但更快推理使用。
+
+### 新增参数
+
+| 参数 | 说明 |
+|------|------|
+| `--use-qnn` | 启用 AidLite QNN 推理引擎（高通 NPU） |
+| `--stream-port` | MJPEG 视频流输出端口 |
+| `--stream-quality` | 视频流 JPEG 质量 (1-100) |
+| `--stream-skip` | 视频流帧跳过数 |
+| `--frame-skip` | 推理帧跳过数 |
+| `--loop` | 循环播放视频流 |
+
+### 相关组件
+
+- `QNNPoseProcessor` / `Yolo11PoseQNNProcessor`：基于 QNN 的姿态检测
+- `QNNShuttlecockDetector`：基于 QNN 的羽毛球检测
+- `mjpeg_streamer.py`：MJPEG 视频流服务器，支持远程查看分析结果
+
+## 🙏 致谢
+感谢 [yo-WASSUP/Good-Badminton](https://github.com/yo-WASSUP/Good-Badminton) 原始项目及其作者提供优秀的羽毛球 AI 分析系统基础。
 感谢 RTMPose、RTMO 和 OpenMMLab 生态提供的姿态估计算法基础，以及 [Tau-J/rtmlib](https://github.com/Tau-J/rtmlib) 提供的轻量姿态估计运行库。
 
 感谢 [Ultralytics](https://github.com/ultralytics/ultralytics) 提供的 YOLO 目标检测算法与工具链。
@@ -262,4 +310,4 @@ badminton_analysis/
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=yo-WASSUP/Good-Badminton&type=Date)](https://www.star-history.com/#yo-WASSUP/Good-Badminton&Date)# Good-Badminton-main-X1
+[![Star History Chart](https://api.star-history.com/svg?repos=yo-WASSUP/Good-Badminton&type=Date)](https://www.star-history.com/#yo-WASSUP/Good-Badminton&Date)
