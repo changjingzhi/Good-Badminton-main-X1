@@ -249,7 +249,7 @@ class Yolo11PoseQNNProcessor:
 
     def __init__(self, model_path, width=640, height=640,
                  model_type="QNN", conf=0.1, iou_thres=0.1):
-        from yolo11_pose import Yolo11Pose
+        from .yolo11_pose import Yolo11Pose
 
         self.model_path = model_path
         self.width = width
@@ -285,7 +285,6 @@ class Yolo11PoseQNNProcessor:
             invoke_nums=1,
             conf_thres=self.conf,
             iou_thres=self.iou_thres,
-            verbose=False,
         )
 
         if not detections:

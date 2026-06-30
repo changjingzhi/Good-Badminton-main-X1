@@ -253,7 +253,7 @@ class Yolo11sBallDetector:
         self.interpreter = interpreter
 
         # Import postprocess helpers from yolov11_pose utils
-        from utils import nms, xywh2xyxy, clip_boxes
+        from .utils import nms, xywh2xyxy, clip_boxes
         self._nms = nms
         self._xywh2xyxy = xywh2xyxy
         self._clip_boxes = clip_boxes
