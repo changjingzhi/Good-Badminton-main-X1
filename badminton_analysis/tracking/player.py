@@ -47,6 +47,27 @@ class PlayerTracker:
 
         self.court_mapper = CourtMapper(corners)
 
+    def reset(self):
+        """Reset all tracking state and statistics for a new loop."""
+        self.players = {"upper": None, "lower": None}
+        self.history = {
+            "upper": deque(maxlen=self.history["upper"].maxlen),
+            "lower": deque(maxlen=self.history["lower"].maxlen),
+        }
+        self.court_history = {
+            "upper": deque(maxlen=self.court_history["upper"].maxlen),
+            "lower": deque(maxlen=self.court_history["lower"].maxlen),
+        }
+        self.match_stats = {
+            "upper": {"total_distance": 0, "max_speed": 0, "total_frames": 0},
+            "lower": {"total_distance": 0, "max_speed": 0, "total_frames": 0},
+        }
+        self.rally_stats = {
+            "upper": {"total_distance": 0, "max_speed": 0, "total_frames": 0},
+            "lower": {"total_distance": 0, "max_speed": 0, "total_frames": 0},
+        }
+        self.current_speed = {"upper": 0, "lower": 0}
+
     def _empty_player_record(self):
         return {
             "image": None,

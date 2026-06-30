@@ -9,6 +9,7 @@ import argparse
 def load_runtime_dependencies():
     """Load heavy runtime dependencies after argparse has handled --help."""
     global cv2, np, YOLO, CourtMapper, annotate_court, compute_expanded_roi, PlayerTracker
+    global auto_detect_court_corners, render_auto_court_preview
     global CourtTrajectoryVisualizer, ShuttlecockTracker, QNNShuttlecockDetector, Yolo11sBallDetector
     global PlayerPoseVisualizer, StatsVisualizer, RTMPoseProcessor, YOLOPoseProcessor, QNNPoseProcessor, Yolo11PoseQNNProcessor, vap
     global JsonlDetectionWriter, write_json, SCHEMA_VERSION
@@ -23,6 +24,7 @@ def load_runtime_dependencies():
         from ultralytics import YOLO as _YOLO
         from .court.mapper import CourtMapper as _CourtMapper, annotate_court as _annotate_court
         from .court.mapper import compute_expanded_roi as _compute_expanded_roi
+        from .court.detector import auto_detect_court_corners as _auto_detect_court_corners, render_auto_court_preview as _render_auto_court_preview
         from .tracking.player import PlayerTracker as _PlayerTracker
         from .visualization.court_trajectory import CourtTrajectoryVisualizer as _CourtTrajectoryVisualizer
         from .detection.shuttlecock import ShuttlecockTracker as _ShuttlecockTracker, QNNShuttlecockDetector as _QNNShuttlecockDetector, Yolo11sBallDetector as _Yolo11sBallDetector
@@ -46,6 +48,8 @@ def load_runtime_dependencies():
     CourtMapper = _CourtMapper
     annotate_court = _annotate_court
     compute_expanded_roi = _compute_expanded_roi
+    auto_detect_court_corners = _auto_detect_court_corners
+    render_auto_court_preview = _render_auto_court_preview
     PlayerTracker = _PlayerTracker
     CourtTrajectoryVisualizer = _CourtTrajectoryVisualizer
     ShuttlecockTracker = _ShuttlecockTracker
@@ -72,7 +76,7 @@ class BadmintonAnalysisSystem:
                  pose_mode='balanced', pose_family='rtmpose',
                  yolo_pose_model='yolo11n-pose.pt', show_pose_roi=True,
                  use_qnn=False, mjpeg_streamer=None, frame_skip=1,
-                 loop=False):
+                 loop=False, force_detect=False):
         self.video_path = video_path
         self.show_display = show_display
         self.language = language
@@ -86,6 +90,7 @@ class BadmintonAnalysisSystem:
         self.mjpeg_streamer = mjpeg_streamer
         self.frame_skip = max(1, int(frame_skip))
         self._loop = bool(loop)
+        self._force_detect = bool(force_detect)
 
         # --- Headless detection: force display off when no X server ---
         _has_display = bool(os.environ.get("DISPLAY", "")) or bool(os.environ.get("WAYLAND_DISPLAY", ""))
@@ -253,7 +258,10 @@ class BadmintonAnalysisSystem:
                 self._court_check_counter = 0
                 self.rally_active = False
                 self.rally_count = 0
+                self.last_stats_update_frame = 0
+                self.cached_movement_stats = {}
                 self.shuttlecock_tracker.clear_trajectory()
+                self.player_tracker.reset()
                 out = None  # only write output video on first loop
             else:
                 # –– first loop: full setup ––
@@ -345,7 +353,7 @@ class BadmintonAnalysisSystem:
                            interpolation=cv2.INTER_NEAREST),
             )
         self._court_check_counter += 1
-        is_court = self._last_is_court
+        is_court = True if self._force_detect else self._last_is_court
         
         if is_court:
             self.is_court_view_count += 1
@@ -576,15 +584,43 @@ class BadmintonAnalysisSystem:
                 mid_height = eval(f.readline().split('=')[1])
                 roi_corners = compute_expanded_roi(corners, template_color.shape)
         elif self._headless:
-            raise RuntimeError(
-                f"Headless mode: no court annotation found at {annotation_file}. "
-                "Please create one on a machine with a display first (run without "
-                "the display issue) or manually prepare this file.\n"
-                "Format:\n"
-                "corners=[(x1,y1),(x2,y2),(x3,y3),(x4,y4)]\n"
-                "roi_corners=[(x1,y1),(x2,y2)]\n"
-                "mid_height=<int>"
-            )
+            print("Headless mode: attempting automatic court detection ...")
+            auto_court_preview_path = os.path.join(self.save_dir, 'auto_court_preview.png')
+
+            fixed_size = (1080, 720)
+            base_image = cv2.resize(template_color, fixed_size)
+            auto_corners, _line_mask, auto_debug = auto_detect_court_corners(base_image)
+
+            if auto_corners and auto_debug is not None:
+                cv2.imwrite(auto_court_preview_path,
+                            render_auto_court_preview(base_image, auto_corners,
+                                                      compute_expanded_roi(auto_corners, base_image.shape),
+                                                      auto_debug))
+                print(f"Auto court preview saved: {auto_court_preview_path}")
+
+                scale_x = template_color.shape[1] / fixed_size[0]
+                scale_y = template_color.shape[0] / fixed_size[1]
+                corners = [(int(x * scale_x), int(y * scale_y)) for x, y in auto_corners]
+                auto_roi_corners = compute_expanded_roi(auto_corners, base_image.shape)
+                roi_corners = [(int(x * scale_x), int(y * scale_y)) for x, y in auto_roi_corners]
+
+                court_mapper = CourtMapper(auto_corners)
+                _, mid_height_int = court_mapper.draw_court_overlay(base_image)
+                mid_height = int(mid_height_int * scale_y)
+                print("Auto court detection succeeded. Annotation saved.")
+            else:
+                cv2.imwrite(auto_court_preview_path,
+                            render_auto_court_preview(base_image, None, None, auto_debug))
+                print(f"Auto court detection failed. Debug preview saved: {auto_court_preview_path}")
+                raise RuntimeError(
+                    f"Headless mode: automatic court detection failed for {self.video_path}. "
+                    f"Please check the debug preview at {auto_court_preview_path}.\n"
+                    "You can also manually prepare court_annotations.txt:\n"
+                    "Format:\n"
+                    "corners=[(x1,y1),(x2,y2),(x3,y3),(x4,y4)]\n"
+                    "roi_corners=[(x1,y1),(x2,y2)]\n"
+                    "mid_height=<int>"
+                )
         else:
             auto_preview_path = os.path.join(self.save_dir, 'auto_court_preview.png')
             corners, roi_corners, mid_height = annotate_court(template_color, auto_preview_path=auto_preview_path)

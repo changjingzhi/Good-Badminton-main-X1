@@ -34,6 +34,7 @@ def main():
     parser.add_argument('--stream-skip', default=1, type=int, help='MJPEG 推流跳帧 (1=每帧都推, 2=隔帧推, 默认1)。独立于 --frame-skip')
     parser.add_argument('--frame-skip', default=1, type=int, help='跳帧间隔（1=逐帧，2=隔帧，默认1）')
     parser.add_argument('--loop', action='store_true', default=False, help='循环处理：视频播放完毕后自动从头重新开始（适合演示/持续推流）')
+    parser.add_argument('--force-detect', action='store_true', default=False, help='强制检测所有帧（跳过球场模板匹配，始终绘制检测结果）')
     args = parser.parse_args()
 
     load_runtime_dependencies()
@@ -84,6 +85,7 @@ def main():
         mjpeg_streamer=streamer,
         frame_skip=args.frame_skip,
         loop=args.loop,
+        force_detect=args.force_detect,
     )
 
     system.keep_audio = args.audio == 'true'
