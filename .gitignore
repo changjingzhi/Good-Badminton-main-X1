@@ -16,12 +16,8 @@ results/
 outputs/
 *.log
 
-# Model weights are intentionally not published
-weights/*
-!weights/.gitkeep
-*.pt
-*.pth
-*.onnx
+# Model weights are included in the repository
+# (if files are large, consider using Git LFS)
 
 # OS and editor files
 .DS_Store
